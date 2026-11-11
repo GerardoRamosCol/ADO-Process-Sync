@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>ADO Process Sync</title>
+  <link rel="icon" href="/icons/workflow.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/app.css">
+  <script src="/app.js" defer></script>
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="/" aria-label="ADO Process Sync"><img src="/icons/workflow.svg" alt="" width="26" height="26"><span>ADO <strong>Process Sync</strong></span></a>
+    <div class="session-tools"><span class="local-label">LOCAL SESSION</span><span id="session-org"></span><button id="logout" class="icon-button" type="button" title="Disconnect and clear credentials" aria-label="Disconnect and clear credentials" disabled><img src="/icons/log-out.svg" alt=""></button></div>
+  </header>
+  <main>
+    <div class="page-heading"><div><p class="eyebrow">AZURE DEVOPS / INHERITED PROCESSES</p><h1>Process Synchronization</h1></div><span id="connection-status" class="badge neutral">Disconnected</span></div>
+    <ol class="steps" aria-label="Synchronization progress"><li id="step-connect" aria-current="step"><span>01</span> Connection</li><li id="step-scope"><span>02</span> Process Scope</li><li id="step-review"><span>03</span> Review &amp; Approve</li><li id="step-result"><span>04</span> Verification</li></ol>
+    <div id="error" class="notice danger" role="alert" hidden></div>
+    <div id="busy" class="notice busy" role="status" aria-live="polite" hidden><span class="spinner" aria-hidden="true"></span><span id="progress">Reading Azure DevOps</span><button id="cancel" class="secondary" type="button">Stop after current operation</button></div>
+
+    <section id="connection-section" class="workspace-section">
+      <div class="section-heading"><h2>Connection</h2><span class="section-meta">01</span></div>
+      <form id="connect-form" class="connection-grid">
+        <label>Organization<input id="organization" name="organization" placeholder="contoso" pattern="[A-Za-z0-9][A-Za-z0-9-]{0,49}" maxlength="50" autocomplete="off" required></label>
+        <label>Reader PAT<input id="reader-pat" name="readerPat" type="password" placeholder="Audit Log (Read) + Work Items (Read)" autocomplete="off" maxlength="512" required spellcheck="false"></label>
+        <button id="connect" class="primary" type="submit">Connect <img src="/icons/arrow-right.svg" alt=""></button>
+      </form>
+    </section>
+
+    <section id="scope-section" class="workspace-section" hidden>
+      <div class="section-heading"><h2>Process Scope</h2><div class="review-tools"><span class="section-meta" id="inventory-count"></span></div></div>
+      <form id="scope-form">
+        <div class="scope-grid">
+          <div class="source-column"><label>Universal Process<select id="source" required><option value="">Select a universal process</option></select></label><p id="source-id" class="identifier"></p><div class="source-mark"><img src="/icons/workflow.svg" alt="" width="34" height="34"><div><span class="eyebrow">SOURCE</span><strong id="source-name">No process selected</strong></div></div></div>
+          <fieldset class="targets-fieldset"><legend>Child Processes</legend><div id="targets" class="target-list"></div></fieldset>
+        </div>
+        <div class="window-grid"><label>Audit Start (UTC)<input id="start-time" type="datetime-local" step="0.001" required></label><label>Audit End (UTC)<span class="date-row"><input id="end-time" type="datetime-local" step="0.001" required><button id="end-now" type="button" class="icon-button" title="Use current UTC time" aria-label="Use current UTC time"><img src="/icons/refresh-cw.svg" alt=""></button></span></label></div>
+        <div class="section-actions"><span id="scope-summary" class="muted">0 children selected</span><div class="review-tools"><button id="view-audit-raw" class="secondary" type="button" aria-haspopup="dialog" disabled>View changes and Apply</button><button id="scan" class="primary" type="submit"><img src="/icons/refresh-cw.svg" alt="">Read Changes</button></div></div>
+      </form>
+    </section>
+
+    <section id="review-section" class="workspace-section" hidden>
+      <div class="section-heading"><div class="heading-with-badge"><h2>Review</h2><span id="plan-mode" class="badge"></span></div><div class="review-tools"><span id="run-id" class="identifier"></span><button id="download" class="icon-button" title="Download exact plan JSON" aria-label="Download exact plan JSON" type="button"><img src="/icons/download.svg" alt=""></button></div></div>
+      <div class="metrics"><div><span>Audit Events</span><strong id="metric-events">0</strong></div><div><span>Source Changes</span><strong id="metric-changes">0</strong></div><div><span>Stage Operations</span><strong id="metric-operations">0</strong></div><div><span>Blockers</span><strong id="metric-blockers">0</strong></div></div>
+      <p id="audit-window" class="identifier"></p>
+      <div id="blockers-section" class="notice danger" hidden><h3>Synchronization Blocked</h3><ul id="blockers"></ul><button id="reconcile" class="secondary" type="button" hidden>Reconcile Previous Run</button></div>
+      <div id="baseline-notice" class="notice baseline" hidden>First run: baseline adoption only. Existing child differences remain unchanged. No Azure DevOps writes.</div>
+      <div class="table-toolbar"><div class="tabs" role="tablist" aria-label="Review views"><button type="button" id="tab-audit" role="tab" aria-selected="true" aria-controls="review-panel" data-tab="audit">Audit</button><button type="button" id="tab-changes" role="tab" aria-selected="false" aria-controls="review-panel" data-tab="changes" tabindex="-1">Changes</button><button type="button" id="tab-mappings" role="tab" aria-selected="false" aria-controls="review-panel" data-tab="mappings" tabindex="-1">Mappings</button><button type="button" id="tab-plan" role="tab" aria-selected="false" aria-controls="review-panel" data-tab="plan" tabindex="-1">Plan</button></div><label class="search-label"><span class="sr-only">Filter review rows</span><input id="filter" type="search" placeholder="Filter review rows"></label></div>
+      <div id="review-panel" role="tabpanel" aria-labelledby="tab-audit" class="table-scroll" tabindex="0"><table><caption class="sr-only" id="table-caption">Audit events</caption><thead id="table-head"></thead><tbody id="table-body"></tbody></table><p id="empty-table" class="empty-state" hidden>No entries in this view.</p></div>
+      <div id="deferred-section" class="notice baseline" hidden><h3>Later Approval Stages</h3><ul id="deferred"></ul></div>
+      <form id="approval-form" class="approval-area">
+        <div class="approval-heading"><h3 id="approval-title">Exact Plan Approval</h3><span class="badge neutral" id="target-count"></span></div>
+        <label class="hash-label">Plan SHA256<code id="plan-hash"></code></label>
+        <div class="approval-inputs"><label id="approval-hash-label">Approval SHA256<input id="approved-hash" pattern="[a-f0-9]{64}" minlength="64" maxlength="64" autocomplete="off" spellcheck="false" required></label><label id="writer-label">Writer PAT<input id="writer-pat" type="password" placeholder="Work Items (Read & write)" autocomplete="off" maxlength="512" spellcheck="false"></label></div>
+        <label id="approval-mappings-label" class="check-label"><input id="mappings-confirmed" type="checkbox" required><span>I approve the listed source-to-child identity mappings and accept the impact on projects using these processes.</span></label>
+        <label class="check-label"><input id="confirmed" type="checkbox" required><span id="approval-confirmation-text">I approve this exact plan for the selected children.</span></label>
+        <div class="section-actions"><span class="safety-note">Nontransactional changes. A stopped run may leave partial updates.</span><button id="apply" class="primary" type="submit"><img src="/icons/check.svg" alt=""><span id="apply-label">Approve &amp; Synchronize</span></button></div>
+      </form>
+    </section>
+
+    <section id="result-section" class="workspace-section" hidden><div class="section-heading"><h2>Verification</h2><span id="result-status" class="badge"></span></div><p id="result-message" role="status"></p><div class="table-scroll"><table><caption class="sr-only">Per-child synchronization results</caption><thead><tr><th>Child Process</th><th>Planned</th><th>Applied</th><th>Verified</th><th>No-op</th><th>Failed</th></tr></thead><tbody id="results-body"></tbody></table></div><p id="result-run" class="identifier"></p></section>
+    <footer><span>ADO Process Sync</span><span id="session-expiry">PAT storage: session memory only</span></footer>
+  </main>
+  <dialog id="audit-raw-dialog" aria-labelledby="audit-raw-title">
+    <div class="section-heading"><h2 id="audit-raw-title">Changes</h2><form method="dialog"><button class="secondary" type="submit" autofocus>Close</button></form></div>
+    <h3>Universal Template changes</h3>
+    <div class="table-scroll"><table><caption class="sr-only">Audit events for ProcessName Universal</caption><thead><tr><th scope="col" aria-sort="ascending">timestamp</th><th scope="col">actionId</th><th scope="col">details</th><th scope="col">category</th><th scope="col">categoryDisplayName</th></tr></thead><tbody id="audit-events-body"></tbody></table><p id="audit-events-empty" class="empty-state" hidden>No audit events for ProcessName Universal.</p></div>
+    <details><summary>Raw Response JSON</summary><p class="muted">Unfiltered response pages. May contain personal or internal organization data.</p><pre id="audit-raw-json" tabindex="0" aria-label="Raw audit JSON"></pre></details>
+    <section class="approval-area" aria-labelledby="audit-sync-title">
+      <h3 id="audit-sync-title">Selected Child Processes</h3>
+      <ul id="audit-sync-children"></ul>
+      <p id="audit-sync-status" role="status" aria-live="polite"></p>
+      <details id="audit-sync-plan-section" hidden><summary>Changes and Mappings</summary><pre id="audit-sync-plan" tabindex="0" aria-label="Child synchronization plan"></pre></details>
+      <div id="audit-sync-approval"></div>
+      <div class="section-actions"><span class="safety-note">Nontransactional changes. A stopped run may leave partial updates.</span><button id="sync-children" class="primary" type="button"><img src="/icons/check.svg" alt=""><span id="sync-children-label">Sync Childs</span></button></div>
+    </section>
+  </dialog>
+</body>
+</html>

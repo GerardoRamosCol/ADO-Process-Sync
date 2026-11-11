@@ -1,0 +1,14 @@
+{
+  "name": "ado-process-sync-local",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "start": "pwsh -NoLogo -NoProfile -File scripts/Start-AdoProcessSyncApp.ps1",
+    "test": "pwsh -NoLogo -NoProfile -File tests/AdoProcessSync.Tests.ps1 && pwsh -NoLogo -NoProfile -File tests/AdoProcessSyncApp.Tests.ps1 && playwright test",
+    "test:browser": "playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.56.0",
+    "lucide-static": "0.468.0"
+  }
+}
